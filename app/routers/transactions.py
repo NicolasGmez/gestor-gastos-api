@@ -1,3 +1,7 @@
+from sqlalchemy import func
+from app.models.transaction import TransactionType
+from app.models.category import Category
+from app.models.transaction import Transaction
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -58,3 +62,37 @@ def delete_existing_transaction(
     deleted = delete_transaction(db, transaction_id, current_user.id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Transacción no encontrada")
+    
+@router.get("/stats/summary")
+def get_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    total_income = db.query(func.sum(Transaction.amount)).filter(
+        Transaction.user_id == current_user.id,
+        Transaction.type == TransactionType.income
+    ).scalar() or 0
+
+    total_expenses = db.query(func.sum(Transaction.amount)).filter(
+        Transaction.user_id == current_user.id,
+        Transaction.type == TransactionType.expense
+    ).scalar() or 0
+
+    by_category = db.query(
+        Category.name,
+        Category.color,
+        func.sum(Transaction.amount).label("total")
+    ).join(Transaction, Transaction.category_id == Category.id).filter(
+        Transaction.user_id == current_user.id,
+        Transaction.type == TransactionType.expense
+    ).group_by(Category.name, Category.color).all()
+
+    return {
+        "total_income": round(total_income, 2),
+        "total_expenses": round(total_expenses, 2),
+        "balance": round(total_income - total_expenses, 2),
+        "by_category": [
+            {"name": r.name, "color": r.color, "total": round(r.total, 2)}
+            for r in by_category
+        ]
+    }    
