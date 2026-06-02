@@ -73,3 +73,26 @@ def delete_transaction(db: Session, transaction_id: int, user_id: int):
     db.delete(transaction)
     db.commit()
     return True
+
+def create_transactions_bulk(db: Session, transactions_data: list[TransactionCreate], user_id: int):
+    if not transactions_data:
+        return []
+
+    first_type = transactions_data[0].type
+
+    for item in transactions_data:
+        if item.type != first_type:
+            raise ValueError("Todas las transacciones deben ser del mismo tipo")
+
+    transactions = [
+        Transaction(**item.model_dump(), user_id=user_id)
+        for item in transactions_data
+    ]
+
+    db.add_all(transactions)
+    db.commit()
+
+    for transaction in transactions:
+        db.refresh(transaction)
+
+    return transactions

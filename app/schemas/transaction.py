@@ -9,6 +9,9 @@ class TransactionCreate(BaseModel):
     category_id: int | None = None
     date: datetime | None = None
 
+class TransactionBulkCreate(BaseModel):
+    transactions: list[TransactionCreate]
+
 class TransactionUpdate(BaseModel):
     amount: float | None = None
     description: str | None = None

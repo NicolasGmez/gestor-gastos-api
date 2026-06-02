@@ -7,9 +7,10 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.user import User
-from app.schemas.transaction import TransactionCreate, TransactionUpdate, TransactionResponse
+from app.schemas.transaction import TransactionCreate, TransactionUpdate, TransactionResponse, TransactionBulkCreate
 from app.services.transaction_service import (
     get_transactions, get_transaction, create_transaction,
+    create_transactions_bulk,
     update_transaction, delete_transaction
 )
 
@@ -29,6 +30,17 @@ def create_new_transaction(
     current_user: User = Depends(get_current_user)
 ):
     return create_transaction(db, data, current_user.id)
+
+@router.post("/bulk", response_model=list[TransactionResponse], status_code=201)
+def create_many_transactions(
+    data: TransactionBulkCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        return create_transactions_bulk(db, data.transactions, current_user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 @router.get("/{transaction_id}", response_model=TransactionResponse)
 def get_one_transaction(
